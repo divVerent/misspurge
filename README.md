@@ -18,6 +18,14 @@ Set `maxage_sec` to the maximum age of notes to retain in seconds.
 Misspurge then will delete any notes or files older than this age. Files
 are deleted only if they are not also referenced by another note.
 
+Note that this feature is usually not needed on Mastodon instances, as
+Mastodon has this feature integrated by now; nevertheless the
+functionality here is still useful for Pleroma instances or others
+speaking Mastodon's protocol but not having built-in retention policies.
+
+Another implementation of this feature is
+[MastoPurge](https://github.com/ThomasLeister/mastopurge).
+
 ## Follow Syncing
 
 Follows, mutes and blocks can be synchronized across instances by
