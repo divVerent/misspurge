@@ -367,6 +367,7 @@ sync_states() {
 		done
 		if $delete; then
 			delete_"$state" "$other" | jq -c
+			rm -f "$sync_relations"/"$state"/"$other"
 			continue
 		fi
 		touch "$sync_relations"/"$state"/"$other"
