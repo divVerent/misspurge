@@ -56,6 +56,9 @@ case "$implementation" in
 		list_notes() {
 			apicall GET "accounts/$me/statuses" "limit=100${1:+&max_id=$1}" | jq -r '.[] | .id + " " + .created_at'
 		}
+		protected_notes() {
+			apicall GET "accounts/$me/statuses" "pinned=truelimit=100${1:+&max_id=$1}" | jq -r '.[] | .id'
+		}
 		delete_note() {
 			apicall DELETE "statuses/$1" ""
 			sleep 1
@@ -195,6 +198,9 @@ case "$implementation" in
 		list_notes() {
 			apicall users/notes ", \"userId\": \"$me\", \"limit\": 100${1:+, \"untilId\": \"$1\"}" | jq -r '.[] | .id + " " + .createdAt'
 		}
+		protected_notes() {
+			apicall users/show ", \"userId\": \"$me\"" | jq -r '.pinnedNoteIds | .[]'
+		}
 		delete_note() {
 			apicall notes/delete ", \"noteId\": \"$1\""
 			sleep 12  # Endpoint limit: 300 per 1 hour.
@@ -311,7 +317,21 @@ filter_age() {
 	done
 }
 
-filter_unused() {
+filter_unused_notes() {
+	protected=$(protected_notes)
+	while read -r note created_at; do
+		case "$LF$protected$LF" in
+			*$LF$note$LF*)
+				echo >&2 "$note is pinned, skipping"
+				continue
+				;;
+		esac
+		echo >&2 "$note is unused"
+		echo "$note $created_at"
+	done
+}
+
+filter_unused_files() {
 	protected=$(protected_files)
 	while read -r file created_at; do
 		case "$LF$protected$LF" in
@@ -344,8 +364,8 @@ purge_files() {
 }
 
 if [ -n "$maxage_sec" ]; then
-	all_notes | filter_age | purge_notes
-	all_files | filter_age | filter_unused | purge_files
+	all_notes | filter_age | filter_unused_notes | purge_notes
+	all_files | filter_age | filter_unused_files | purge_files
 fi
 
 sync_states() {
