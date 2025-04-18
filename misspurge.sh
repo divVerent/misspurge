@@ -352,12 +352,23 @@ sync_states() {
 	state=$1
 	unstates=$2
 	exceptstates=$3
+	ignorestates=$4
 
 	mkdir -p "$sync_relations"/"$state"
 
 	# Save all known ones.
 	known=''
 	while read -r id other; do
+		ignore=false
+		for ignorestate in $ignorestates; do
+			if [ -f "$sync_relations"/"$exceptstate"/"$other" ]; then
+				echo >&2 "Leave $other alone from $state because $other is also in $ignorestate."
+				ignore=true
+			fi
+		done
+		if $ignore; then
+			continue
+		fi
 		delete=false
 		for exceptstate in $exceptstates; do
 			if [ -f "$sync_relations"/"$exceptstate"/"$other" ]; then
@@ -395,7 +406,7 @@ sync_states() {
 }
 
 if [ -n "$sync_relations" ]; then
-	all_blocks  | sync_states block  'mute follow' 'noblock'
-	all_mutes   | sync_states mute   'follow'      'nomute block'
-	all_follows | sync_states follow ''            'nofollow block mute'
+	all_blocks  | sync_states block  'mute follow' 'noblock'             nochange
+	all_mutes   | sync_states mute   'follow'      'nomute block'        nochange
+	all_follows | sync_states follow ''            'nofollow block mute' nochange
 fi
