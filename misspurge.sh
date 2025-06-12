@@ -54,7 +54,7 @@ case "$implementation" in
 		me=$(apicall GET accounts/verify_credentials '' | jq -r '.id')
 		[ -n "$me" ] || exit 1
 		list_notes() {
-			apicall GET "accounts/$me/statuses" "limit=100${1:+&max_id=$1}" | jq -r '.[] | .id + " " + .created_at'
+			apicall GET "accounts/$me/statuses" "limit=100${1:+&max_id=$1}" | jq -r '.[] | .id + " " + .id + " " + .created_at'
 		}
 		protected_notes() {
 			apicall GET "accounts/$me/statuses" "pinned=truelimit=100${1:+&max_id=$1}" | jq -r '.[] | .id'
@@ -196,7 +196,7 @@ case "$implementation" in
 		}
 		me=$(apicall i '' | jq -r '.id')
 		list_notes() {
-			apicall users/notes ", \"userId\": \"$me\", \"limit\": 100${1:+, \"untilId\": \"$1\"}" | jq -r '.[] | .id + " " + .createdAt'
+			apicall users/notes ", \"userId\": \"$me\", \"limit\": 100${1:+, \"untilId\": \"$1\"}" | jq -r '.[] | .id + " " + .id + " " + .createdAt'
 		}
 		protected_notes() {
 			apicall users/show ", \"userId\": \"$me\"" | jq -r '.pinnedNoteIds | .[]'
@@ -206,7 +206,7 @@ case "$implementation" in
 			sleep 12  # Endpoint limit: 300 per 1 hour.
 		}
 		list_files() {
-			apicall drive/files ", \"limit\": 100${1:+, \"untilId\": \"$1\"}" | jq -r '.[] | .id + " " + .createdAt'
+			apicall drive/files ", \"limit\": 100${1:+, \"untilId\": \"$1\"}" | jq -r '.[] | .id + " " + .id + " " + .createdAt'
 		}
 		protected_files() {
 			apicall i '' | jq -r '.avatarId + "\n" + .bannerId'
@@ -279,7 +279,7 @@ all_items() {
 		continuation=
 		while [ $# -gt 0 ]; do
 			line=$1; shift
-			echo "$line"
+			echo "${line#* }"
 			continuation=${line%% *}
 		done
 		if [ -z "$continuation" ]; then
@@ -309,7 +309,7 @@ all_follows() {
 }
 
 filter_age() {
-	while read -r file created_at; do
+	while IFS=" " read -r file created_at; do
 		created_at=$(date +%s -d"$created_at")
 		if [ $created_at -lt $maxtime ]; then
 			echo "$file $created_at"
@@ -319,7 +319,7 @@ filter_age() {
 
 filter_unused_notes() {
 	protected=$(protected_notes)
-	while read -r note created_at; do
+	while IFS=" " read -r note created_at; do
 		case "$LF$protected$LF" in
 			*$LF$note$LF*)
 				echo >&2 "$note is pinned, skipping"
@@ -333,7 +333,7 @@ filter_unused_notes() {
 
 filter_unused_files() {
 	protected=$(protected_files)
-	while read -r file created_at; do
+	while IFS=" " read -r file created_at; do
 		case "$LF$protected$LF" in
 			*$LF$file$LF*)
 				echo >&2 "$file is used as avatar or banner, skipping"
@@ -350,14 +350,14 @@ filter_unused_files() {
 }
 
 purge_notes() {
-	while read -r note created_at; do
+	while IFS=" " read -r note created_at; do
 		echo >&2 "Purging note $note..."
 		delete_note "$note"
 	done
 }
 
 purge_files() {
-	while read -r file created_at; do
+	while IFS=" " read -r file created_at; do
 		echo >&2 "Purging unused file $file..."
 		delete_file "$file"
 	done
@@ -378,7 +378,7 @@ sync_states() {
 
 	# Save all known ones.
 	known=''
-	while read -r id other; do
+	while read -r other; do
 		ignore=false
 		for ignorestate in $ignorestates; do
 			if [ -f "$sync_relations"/"$exceptstate"/"$other" ]; then
@@ -411,6 +411,7 @@ sync_states() {
 
 	# Add all unknown ones.
 	for other in "$sync_relations"/"$state"/*; do
+		[ -e "$other" ] || continue
 		other=${other##*/}
 		case "$known" in
 			*" $other "*)
