@@ -368,6 +368,13 @@ if [ -n "$maxage_sec" ]; then
 	all_files | filter_age | filter_unused_files | purge_files
 fi
 
+# touch but it doesn't reset the file timestamp.
+creat() {
+	if ! [ -f "$1" ]; then
+		: > "$1"
+	fi
+}
+
 sync_states() {
 	state=$1
 	unstates=$2
@@ -401,7 +408,7 @@ sync_states() {
 			rm -f "$sync_relations"/"$state"/"$other"
 			continue
 		fi
-		touch "$sync_relations"/"$state"/"$other"
+		creat "$sync_relations"/"$state"/"$other"
 		for unstate in $unstates; do
 			rm -f "$sync_relations"/"$unstate"/"$other"
 		done
